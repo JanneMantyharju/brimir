@@ -137,9 +137,11 @@ class TicketMailer < ActionMailer::Base
     end
 
     if ticket == incoming
-      NotificationMailer.new_ticket(ticket.user, ticket).deliver
+      ticket.set_default_notifications!(ticket.user)
+      NotificationMailer.new_ticket(ticket).deliver
     else
-      NotificationMailer.new_reply(incoming.user, incoming).deliver
+      incoming.set_default_notifications!
+      NotificationMailer.new_reply(incoming).deliver
     end
 
     return incoming

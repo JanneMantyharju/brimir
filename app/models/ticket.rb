@@ -27,6 +27,9 @@ class Ticket < ActiveRecord::Base
   has_many :labelings, as: :labelable
   has_many :labels, through: :labelings
 
+  has_many :notifications, as: :notifiable, dependent: :destroy
+  has_many :notified_users, source: :user, through: :notifications
+
   enum status: [:open, :closed, :deleted]
   enum priority: [:unknown, :low, :medium, :high]
 
@@ -81,4 +84,26 @@ class Ticket < ActiveRecord::Base
       where('tickets.id IN (?) OR tickets.user_id = ?', ticket_ids, user.id)
     end
   }
+
+  def set_default_notifications!(created_by)
+
+    # customer created ticket for another user
+    if !created_by.agent? && created_by != user
+      self.notified_user_ids = User.agents_to_notify.pluck(:id)
+      self.notified_user_ids << user.id
+
+    # ticket created by customer
+    elsif !created_by.agent?
+      self.notified_user_ids = User.agents_to_notify.pluck(:id)
+
+    # ticket created by agent for another user
+    elsif created_by.agent? && created_by != user
+      self.notified_user_ids = [user.id]
+
+    # agent created ticket for himself
+    else
+      self.notified_user_ids = []
+    end
+  end
+
 end

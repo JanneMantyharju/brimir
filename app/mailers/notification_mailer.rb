@@ -16,19 +16,11 @@
 
 class NotificationMailer < ActionMailer::Base
 
-  def new_ticket(created_by, ticket)
+  def new_ticket(ticket)
+    to = users_to_addresses(ticket.notified_users)
 
-    #customer created ticket for another user
-    if !created_by.agent? && created_by != ticket.user
-      to = agents_to_notify + [ticket.user.email]
-    #ticket created by customer
-    elsif !created_by.agent?
-      to = agents_to_notify
-    #ticket created by agent for another user
-    elsif created_by.agent? && created_by != ticket.user
-      to = [ticket.user.email]
-    #agent created ticket for himself (or herself ;))
-    else
+    if to.size == 0
+      # nothing to send
       return
     end
 
@@ -45,9 +37,9 @@ class NotificationMailer < ActionMailer::Base
     mail(to: to, subject: title)
   end
 
-  def new_reply(created_by, reply)
+  def new_reply(reply)
 
-    to = thread_users_to_notify(reply)
+    to = users_to_addresses(reply.notified_users)
 
     title = I18n::translate(:new_reply) + ': ' + reply.ticket.subject
 
@@ -62,29 +54,6 @@ class NotificationMailer < ActionMailer::Base
   end
 
   protected
-    def agents_to_notify
-      User.agents
-          .where(notify: true)
-          .pluck(:email)
-    end
-
-    def thread_users_to_notify(reply)
-      to = [reply.ticket.user.email]
-
-      reply.other_replies.each do |r|
-        to << r.user.email
-      end
-
-      assignee = reply.ticket.assignee
-      if assignee.present?
-        to << assignee.email
-      else
-        to += agents_to_notify
-      end
-
-      to.uniq - [reply.user.email]
-    end
-
     def add_reference_message_ids(reply)
       references = reply.other_replies.with_message_id.pluck(:message_id)
 
@@ -108,6 +77,12 @@ class NotificationMailer < ActionMailer::Base
     def add_attachments(ticket_or_reply)
       ticket_or_reply.attachments.each do |at|
         attachments[at.file_file_name] = File.read(at.file.path)
+      end
+    end
+
+    def users_to_addresses(users)
+      users.map do |user|
+        user.email
       end
     end
 

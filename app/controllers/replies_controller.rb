@@ -41,13 +41,11 @@ class RepliesController < ApplicationController
     begin
       Reply.transaction do
         @reply.save!
-        mail = NotificationMailer.new_reply(current_user, @reply)
+        mail = NotificationMailer.new_reply(@reply)
 
         mail.deliver
 
-        @reply.to = mail.to.join(', ')
         @reply.message_id = mail.message_id
-        @reply.content_type = 'html'
 
         @reply.save!
         redirect_to @reply.ticket, notice: I18n::translate(:reply_added)
@@ -64,6 +62,7 @@ class RepliesController < ApplicationController
           :ticket_id,
           :message_id,
           :user_id,
+          notified_user_ids: []
       )
     end
 

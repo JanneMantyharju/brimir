@@ -19,6 +19,9 @@ class Reply < ActiveRecord::Base
 
   has_many :attachments, as: :attachable, dependent: :destroy
 
+  has_many :notifications, as: :notifiable, dependent: :destroy
+  has_many :notified_users, source: :user, through: :notifications
+
   accepts_nested_attributes_for :attachments
 
   validates_presence_of :ticket_id, :content
@@ -31,19 +34,32 @@ class Reply < ActiveRecord::Base
     where.not(message_id: nil)
   }
 
-  def to
-    to = read_attribute(:to)
-
-    # send to ticket starter when not current user and no to address set
-    if to.blank? && self.ticket.user != self.user
-      self.ticket.user.email
-    else
-      to
+  def set_default_notifications!
+    self.notified_user_ids = users_to_notify.map do |user|
+      user.id
     end
   end
 
   def other_replies
     self.ticket.replies.where.not(id: self.id)
+  end
+
+  def users_to_notify
+    to = [ticket.user]
+
+    other_replies.each do |r|
+      to << r.user
+    end
+
+    assignee = ticket.assignee
+
+    if assignee.present?
+      to << assignee
+    else
+      to += User.agents_to_notify
+    end
+
+    to.uniq - [user]
   end
 
 end

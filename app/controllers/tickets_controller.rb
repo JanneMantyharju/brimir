@@ -34,8 +34,11 @@ class TicketsController < ApplicationController
   def show
     @agents = User.agents
 
-    @reply = @ticket.replies.new content: '<br /><br />' + current_user.signature.to_s
-    @reply.to = @ticket.user.email
+    @reply = @ticket.replies.new(
+        content: '<br /><br />' + current_user.signature.to_s,
+        user: current_user,
+    )
+    @reply.set_default_notifications!
 
     @labeling = Labeling.new(labelable: @ticket)
   end
@@ -129,13 +132,17 @@ class TicketsController < ApplicationController
       format.html do
         @ticket = Ticket.new(ticket_params)
 
+        if current_user.nil?
+          user = @ticket.user
+        else
+          user = current_user
+        end
+        @ticket.set_default_notifications!(user)
+
+
         if @ticket.save
-          if current_user.nil?
-            user = @ticket.user
-          else
-            user = current_user
-          end
-          NotificationMailer.new_ticket(user, @ticket).deliver
+
+          NotificationMailer.new_ticket(@ticket).deliver
 
           if current_user.nil?
             return render text: I18n::translate(:ticket_added)
