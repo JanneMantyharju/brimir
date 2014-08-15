@@ -48,11 +48,6 @@ class TicketsController < ApplicationController
 
     params[:status] ||= 'open'
 
-    @labels = Ticket.active_labels(params[:status])
-    unless current_user.agent?
-      @labels = current_user.labels & @labels
-    end
-
     @tickets = Ticket.by_status(params[:status])
       .search(params[:q])
       .by_label_id(params[:label_id])
